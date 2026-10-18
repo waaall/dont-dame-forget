@@ -97,6 +97,7 @@ class _HomePageState extends State<HomePage> {
                     SectionLabel(
                       context.l10n.plans,
                       trailing: SegmentedButton<bool>(
+                        expandedInsets: EdgeInsets.zero,
                         showSelectedIcon: false,
                         style: const ButtonStyle(
                           minimumSize: WidgetStatePropertyAll(Size(0, 36)),
@@ -451,8 +452,10 @@ class _ReminderCard extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 15),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
+              Wrap(
+                spacing: 12,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.end,
                 children: [
                   Text(
                     plan.nextAt == null
@@ -468,16 +471,13 @@ class _ReminderCard extends ConsumerWidget {
                       fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 3),
-                      child: Text(
-                        context.repeatLabel(plan),
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: colors.onSurfaceVariant,
-                        ),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 3),
+                    child: Text(
+                      context.repeatLabel(plan),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: colors.onSurfaceVariant,
                       ),
                     ),
                   ),

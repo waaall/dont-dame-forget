@@ -59,6 +59,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         title: context.l10n.language,
                         trailing: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
+                            isExpanded: true,
+                            itemHeight: null,
                             value: data.settings.language,
                             items: [
                               DropdownMenuItem(
@@ -86,6 +88,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         title: context.l10n.appearance,
                         trailing: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
+                            isExpanded: true,
+                            itemHeight: null,
                             value: data.settings.theme,
                             items: [
                               DropdownMenuItem(
@@ -306,47 +310,74 @@ class _SettingRow extends StatelessWidget {
     borderRadius: BorderRadius.circular(AppTheme.radius),
     child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            size: 21,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final stacked =
+              constraints.maxWidth < 270 ||
+              MediaQuery.textScalerOf(context).scale(14) > 20;
+          final label = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 5),
                 Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                  subtitle!,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 5),
-                  Text(
-                    subtitle!,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
               ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          DefaultTextStyle.merge(
+            ],
+          );
+          final value = DefaultTextStyle.merge(
             style: TextStyle(
               fontSize: 12,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
             child: trailing,
-          ),
-        ],
+          );
+          final leading = Icon(
+            icon,
+            size: 21,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          );
+          if (stacked) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    leading,
+                    const SizedBox(width: 13),
+                    Expanded(child: label),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                value,
+              ],
+            );
+          }
+          return Row(
+            children: [
+              leading,
+              const SizedBox(width: 13),
+              Expanded(child: label),
+              const SizedBox(width: 8),
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: constraints.maxWidth / 2),
+                child: value,
+              ),
+            ],
+          );
+        },
       ),
     ),
   );

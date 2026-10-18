@@ -21,15 +21,18 @@ try {
         if ($LASTEXITCODE -ne 0) { throw 'Static analysis failed' }
         & flutter test --exclude-tags preview
         if ($LASTEXITCODE -ne 0) { throw 'Flutter tests failed' }
+    }
+    # A fresh Flutter checkout has no Gradle wrapper until Flutter builds Android.
+    if ($Universal) { & flutter build apk --release }
+    else { & flutter build apk --release --split-per-abi }
+    if ($LASTEXITCODE -ne 0) { throw 'APK build failed' }
+    if (-not $SkipChecks) {
         Push-Location android
         try {
             & .\gradlew.bat :app:testDebugUnitTest :app:lintDebug --console=plain
             if ($LASTEXITCODE -ne 0) { throw 'Android tests failed' }
         } finally { Pop-Location }
     }
-    if ($Universal) { & flutter build apk --release }
-    else { & flutter build apk --release --split-per-abi }
-    if ($LASTEXITCODE -ne 0) { throw 'APK build failed' }
     Get-ChildItem -LiteralPath 'build/app/outputs/flutter-apk' -Filter '*release.apk' | Select-Object FullName, Length
 } finally {
     $env:JAVA_HOME = $taskOldJava

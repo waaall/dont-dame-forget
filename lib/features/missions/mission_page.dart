@@ -52,93 +52,101 @@ class _MissionPageState extends ConsumerState<MissionPage> {
     final l = context.l10n;
     return PopScope(
       canPop: _leaving,
-      child: Theme(
-        data: AppTheme.of(Brightness.dark),
-        child: Scaffold(
-          backgroundColor: AppColors.night,
-          bottomNavigationBar: _snoozeFooter(context),
-          body: SafeArea(
-            bottom: false,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 18),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 470),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            categoryIcon(occurrence.plan.category),
-                            color: const Color(0xFFFFB488),
-                            size: 21,
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.light,
+        child: Theme(
+          data: AppTheme.of(Brightness.dark),
+          child: Scaffold(
+            backgroundColor: AppColors.night,
+            bottomNavigationBar: _snoozeFooter(context),
+            body: SafeArea(
+              bottom: false,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 18),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 470),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              categoryIcon(occurrence.plan.category),
+                              color: const Color(0xFFFFB488),
+                              size: 21,
+                            ),
+                            const SizedBox(width: 9),
+                            Flexible(
+                              child: Text(
+                                occurrence.isReview
+                                    ? l.reviewTime
+                                    : l.timeToAct,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Color(0xFFD1B99C),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 2,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          occurrence.plan.title,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xFFF8F5E9),
+                            fontSize: 26,
+                            fontWeight: FontWeight.w600,
+                            height: 1.4,
                           ),
-                          const SizedBox(width: 9),
-                          Text(
-                            occurrence.isReview ? l.reviewTime : l.timeToAct,
-                            style: const TextStyle(
-                              color: Color(0xFFD1B99C),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 2,
+                        ),
+                        if (occurrence.plan.note.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              occurrence.plan.note,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Color(0xFFA7BCAC),
+                                fontSize: 12,
+                                height: 1.6,
+                              ),
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        occurrence.plan.title,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Color(0xFFF8F5E9),
-                          fontSize: 26,
-                          fontWeight: FontWeight.w600,
-                          height: 1.4,
+                        const SizedBox(height: 9),
+                        Text(
+                          occurrence.status == 'snoozed'
+                              ? l.snoozedMission
+                              : l.missionRequired,
+                          style: const TextStyle(
+                            color: Color(0xFF93AA99),
+                            fontSize: 12,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
-                      ),
-                      if (occurrence.plan.note.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(
-                            occurrence.plan.note,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Color(0xFFA7BCAC),
-                              fontSize: 12,
-                              height: 1.6,
+                        const SizedBox(height: 22),
+                        if (occurrence.plan.mission == 'math')
+                          _math(context)
+                        else
+                          _qr(context),
+                        if (_feedback != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: Text(
+                              _feedback!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Color(0xFFFFB49D),
+                                fontSize: 12,
+                              ),
                             ),
                           ),
-                        ),
-                      const SizedBox(height: 9),
-                      Text(
-                        occurrence.status == 'snoozed'
-                            ? l.snoozedMission
-                            : l.missionRequired,
-                        style: const TextStyle(
-                          color: Color(0xFF93AA99),
-                          fontSize: 12,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 22),
-                      if (occurrence.plan.mission == 'math')
-                        _math(context)
-                      else
-                        _qr(context),
-                      if (_feedback != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 12),
-                          child: Text(
-                            _feedback!,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Color(0xFFFFB49D),
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -356,8 +364,12 @@ class _MissionPageState extends ConsumerState<MissionPage> {
                                       },
                                 child: Center(
                                   child: index == 11
-                                      ? const Icon(
+                                      ? Icon(
                                           Icons.backspace_outlined,
+                                          semanticLabel:
+                                              MaterialLocalizations.of(
+                                                context,
+                                              ).deleteButtonTooltip,
                                           size: 21,
                                           color: Color(0xFFD9E4D3),
                                         )

@@ -10,20 +10,31 @@ class SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(top: 24, bottom: 12),
-    child: Row(
-      children: [
-        Expanded(
-          child: Text(
-            text,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              letterSpacing: 1.1,
-              fontWeight: FontWeight.w700,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final label = Text(
+          text,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            letterSpacing: 1.1,
+            fontWeight: FontWeight.w700,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
-        ),
-        ?trailing,
-      ],
+        );
+        if (trailing != null &&
+            (constraints.maxWidth < 300 ||
+                MediaQuery.textScalerOf(context).scale(14) > 20)) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [label, const SizedBox(height: 10), trailing!],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: label),
+            if (trailing != null) Flexible(child: trailing!),
+          ],
+        );
+      },
     ),
   );
 }

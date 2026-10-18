@@ -28,10 +28,11 @@ void main() {
               ))
               .load();
         }
+        final flutterRoot = Platform.environment['FLUTTER_ROOT'];
         final materialIcons = File(
-          'D:/develop-app/flutter/bin/cache/artifacts/material_fonts/materialicons-regular.otf',
+          '$flutterRoot/bin/cache/artifacts/material_fonts/materialicons-regular.otf',
         );
-        if (await materialIcons.exists()) {
+        if (flutterRoot != null && await materialIcons.exists()) {
           await (FontLoader('MaterialIcons')..addFont(
                 Future.value(
                   ByteData.sublistView(await materialIcons.readAsBytes()),

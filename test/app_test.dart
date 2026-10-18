@@ -22,6 +22,27 @@ Future<void> launch(
 }
 
 void main() {
+  testWidgets('the labeled delete key removes the last answer digit', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      await launch(tester, FakeEngine(ringing: true, language: 'en'));
+      await tester.tap(find.text('1'));
+      await tester.tap(find.text('2'));
+      await tester.pumpAndSettle();
+      expect(find.text('12'), findsOneWidget);
+      await tester.tap(find.bySemanticsLabel('Delete'));
+      await tester.pumpAndSettle();
+      expect(find.text('12'), findsNothing);
+      expect(find.text('1'), findsNWidgets(2));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    } finally {
+      semantics.dispose();
+    }
+  });
+
   testWidgets('first launch has an honest empty state and setup entry', (
     tester,
   ) async {
