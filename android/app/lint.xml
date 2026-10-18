@@ -1,0 +1,8 @@
+<lint>
+    <!-- Flutter generates this file. Colons inside property values are valid Java
+         Properties syntax; checking it causes Windows-only false positives.
+         Keep PropertyEscape enabled for all maintained project configuration. -->
+    <issue id="PropertyEscape">
+        <ignore path="../local.properties" />
+    </issue>
+</lint>
