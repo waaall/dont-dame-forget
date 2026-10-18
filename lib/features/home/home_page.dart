@@ -244,101 +244,107 @@ class _NextCard extends StatelessWidget {
   final VoidCallback onTap;
   const _NextCard({required this.occurrence, required this.onTap});
   @override
-  Widget build(BuildContext context) => Material(
-    color: AppColors.night,
-    borderRadius: BorderRadius.circular(26),
-    child: InkWell(
-      onTap: onTap,
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
+    final background = dark ? const Color(0xFF243B32) : const Color(0xFFEAF0E9);
+    final foreground = dark ? const Color(0xFFFFF3DF) : AppColors.ink;
+    final secondary = dark ? const Color(0xFFB9C9BA) : const Color(0xFF52665A);
+    final accent = dark ? theme.colorScheme.primary : const Color(0xFFAD4928);
+    final ringing = occurrence.status == 'ringing';
+    return Material(
+      color: background,
       borderRadius: BorderRadius.circular(26),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF2B48C),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    context.l10n.nextReminder,
-                    style: const TextStyle(
-                      color: Color(0xFFD5DED1),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.3,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(26),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: ringing ? accent : secondary,
+                      shape: BoxShape.circle,
                     ),
                   ),
-                ),
-                Icon(
-                  categoryIcon(occurrence.plan.category),
-                  color: const Color(0xFFA8B9AB),
-                  size: 24,
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            Text(
-              DateFormat.Hm().format(occurrence.nextAt),
-              style: const TextStyle(
-                color: Color(0xFFFFF3DF),
-                fontSize: 54,
-                fontWeight: FontWeight.w300,
-                height: 1.1,
-                letterSpacing: -2,
-                fontFeatures: [FontFeature.tabularFigures()],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              occurrence.plan.title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${context.scheduledLabel(occurrence.nextAt)} · ${context.statusLabel(occurrence.status)}',
-                    style: const TextStyle(
-                      color: Color(0xFFB9C9BA),
-                      fontSize: 11,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      context.l10n.nextReminder,
+                      style: TextStyle(
+                        color: secondary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.3,
+                      ),
                     ),
                   ),
+                  Icon(
+                    categoryIcon(occurrence.plan.category),
+                    color: secondary,
+                    size: 24,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Text(
+                DateFormat.Hm().format(occurrence.nextAt),
+                style: TextStyle(
+                  color: foreground,
+                  fontSize: 54,
+                  fontWeight: FontWeight.w300,
+                  height: 1.1,
+                  letterSpacing: -2,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
-                const SizedBox(width: 10),
-                const Icon(
-                  Icons.arrow_forward_rounded,
-                  color: Color(0xFFF2B48C),
-                  size: 20,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                occurrence.plan.title,
+                style: TextStyle(
+                  color: foreground,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
                 ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            _Countdown(at: occurrence.nextAt),
-          ],
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${context.scheduledLabel(occurrence.nextAt)} · ${context.statusLabel(occurrence.status)}',
+                      style: TextStyle(
+                        color: ringing ? accent : secondary,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Icon(Icons.arrow_forward_rounded, color: accent, size: 20),
+                ],
+              ),
+              const SizedBox(height: 10),
+              _Countdown(at: occurrence.nextAt, color: secondary),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _Countdown extends StatefulWidget {
   final DateTime at;
-  const _Countdown({required this.at});
+  final Color color;
+  const _Countdown({required this.at, required this.color});
   @override
   State<_Countdown> createState() => _CountdownState();
 }
@@ -369,10 +375,10 @@ class _CountdownState extends State<_Countdown> {
         '${(seconds ~/ 3600).toString().padLeft(2, '0')}:${(seconds ~/ 60 % 60).toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}';
     return Text(
       context.l10n.nextIn(duration),
-      style: const TextStyle(
-        color: Color(0xFF8FA896),
+      style: TextStyle(
+        color: widget.color,
         fontSize: 11,
-        fontFeatures: [FontFeature.tabularFigures()],
+        fontFeatures: const [FontFeature.tabularFigures()],
       ),
     );
   }

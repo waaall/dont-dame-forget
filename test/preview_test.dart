@@ -68,6 +68,12 @@ void main() {
         ),
       );
       await capture('home-zh');
+      final controller = ProviderScope.containerOf(
+        tester.element(find.byType(DontForgetApp)),
+      ).read(appControllerProvider);
+      await controller.command('saveSettings', {'theme': 'dark'});
+      await capture('home-dark-zh');
+      await controller.command('saveSettings', {'theme': 'light'});
       await tester.tap(find.text('设置').last);
       await capture('settings-zh');
       await tester.tap(find.text('提醒').last);
