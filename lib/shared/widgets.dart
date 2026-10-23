@@ -42,13 +42,16 @@ class SectionLabel extends StatelessWidget {
 class ContentCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
+  final bool semanticContainer;
   const ContentCard({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(20),
+    this.semanticContainer = true,
   });
   @override
   Widget build(BuildContext context) => Card(
+    semanticContainer: semanticContainer,
     child: Padding(padding: padding, child: child),
   );
 }

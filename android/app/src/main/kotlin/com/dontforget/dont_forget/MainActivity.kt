@@ -2,6 +2,7 @@ package com.dontforget.dont_forget
 
 import android.Manifest
 import android.content.Intent
+import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -19,6 +20,7 @@ class MainActivity : FlutterActivity() {
     private val worker = Executors.newSingleThreadExecutor()
     private var eventSink: EventChannel.EventSink? = null
     private val reminderEngine by lazy { ReminderEngine.get(this) }
+    private var ringtoneResult: MethodChannel.Result? = null
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         updateAlarmWindow()
@@ -31,6 +33,37 @@ class MainActivity : FlutterActivity() {
         })
         reminderEngine.onChanged = { if (!isDestroyed) { updateAlarmWindow(); eventSink?.success("changed") } }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "dont_forget/engine").setMethodCallHandler { call, result ->
+            when (call.method) {
+                "pickSound" -> {
+                    if (ringtoneResult != null) { result.error("sound_picker_busy", null, null); return@setMethodCallHandler }
+                    SoundPreview.stop()
+                    val current = call.argument<String>("soundUri").orEmpty()
+                    val picker = Intent(RingtoneManager.ACTION_RINGTONE_PICKER)
+                        .putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
+                        .putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                        .putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                        .putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI,
+                            if (current.isBlank()) RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM) else Uri.parse(current))
+                        .putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, reminderEngine.text("选择闹钟铃声", "Choose alarm sound"))
+                    ringtoneResult = result
+                    try { @Suppress("DEPRECATION") startActivityForResult(picker, 306) }
+                    catch (error: Exception) { ringtoneResult = null; result.error("sound_picker_unavailable", error.message, null) }
+                    return@setMethodCallHandler
+                }
+                "previewSound", "stopSoundPreview", "soundStatus" -> {
+                    try {
+                        val value: Any? = when (call.method) {
+                            "previewSound" -> { SoundPreview.start(applicationContext, JSONObject((call.arguments as? Map<*, *>) ?: emptyMap<String, Any>())); null }
+                            "stopSoundPreview" -> { SoundPreview.stop(); null }
+                            else -> JSONObject().put("preview", SoundPreview.status()).put("alarm", AlarmService.soundStatus())
+                        }
+                        result.success(toDart(value))
+                    } catch (error: Exception) {
+                        result.error(if (error is RuleException) error.code else "invalid_sound", error.message, null)
+                    }
+                    return@setMethodCallHandler
+                }
+            }
             if (call.method == "openPermission") {
                 try { openPermission(call.argument<String>("kind") ?: "app"); result.success(null) }
                 catch (error: Exception) { result.error("settings_unavailable", error.message, null) }
@@ -51,7 +84,7 @@ class MainActivity : FlutterActivity() {
                         "emergencyClose" -> reminderEngine.emergency(data.getString("id"), data.getString("phrase"), data.getString("password"))
                         "saveSettings" -> reminderEngine.saveSettings(data)
                         "setPassword" -> reminderEngine.setPassword(data.optString("currentPassword"), data.getString("password"))
-                        "testReminder" -> reminderEngine.createTest()
+                        "testReminder" -> reminderEngine.createTest(data)
                         else -> throw RuleException("unknown_method")
                     }
                     runOnUiThread { if (!isDestroyed) { updateAlarmWindow(); result.success(toDart(value)) } }
@@ -74,6 +107,25 @@ class MainActivity : FlutterActivity() {
     }
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent); setIntent(intent); updateAlarmWindow(); eventSink?.success("changed")
+    }
+    @Suppress("DEPRECATION")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != 306) return
+        val result = ringtoneResult ?: return
+        ringtoneResult = null
+        if (resultCode != RESULT_OK) { result.success(null); return }
+        try {
+            val uri = if (Build.VERSION.SDK_INT >= 33) data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI, Uri::class.java)
+                else data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+            val useDefault = uri == null || RingtoneManager.isDefault(uri)
+            val title = if (useDefault) "" else RingtoneManager.getRingtone(this, uri)?.getTitle(this).orEmpty()
+            result.success(mapOf("soundUri" to if (useDefault) "" else uri.toString(), "soundName" to title))
+        } catch (error: Exception) { result.error("sound_picker_unavailable", error.message, null) }
+    }
+    override fun onPause() {
+        SoundPreview.stop()
+        super.onPause()
     }
     private fun updateAlarmWindow() {
         // A storage failure must reach Flutter's retry screen, not crash Activity startup.
@@ -107,6 +159,8 @@ class MainActivity : FlutterActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults); eventSink?.success("changed")
     }
     override fun onDestroy() {
+        SoundPreview.stop()
+        ringtoneResult?.success(null); ringtoneResult = null
         reminderEngine.onChanged = null; eventSink = null; worker.shutdown(); super.onDestroy()
     }
     private fun toDart(value: Any?): Any? = when (value) {

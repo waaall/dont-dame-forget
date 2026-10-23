@@ -9,6 +9,7 @@ import '../../shared/theme.dart';
 import '../../shared/widgets.dart';
 import '../missions/scanner_page.dart';
 import '../settings/settings_page.dart';
+import 'sound_settings.dart';
 
 class ReminderEditor extends ConsumerStatefulWidget {
   final Reminder? reminder;
@@ -33,6 +34,7 @@ class _ReminderEditorState extends ConsumerState<ReminderEditor> {
       _initialized = false;
   Set<int> _days = {1, 2, 3, 4, 5, 6, 7};
   String? _error;
+  ReminderSound _sound = const ReminderSound();
   @override
   void initState() {
     super.initState();
@@ -63,6 +65,7 @@ class _ReminderEditorState extends ConsumerState<ReminderEditor> {
       _repeating = plan.repeating;
       _review = plan.reviewEnabled;
       _vibrate = plan.vibrate;
+      _sound = plan.sound;
       _days = plan.days.toSet();
     }
   }
@@ -118,7 +121,12 @@ class _ReminderEditorState extends ConsumerState<ReminderEditor> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(22, 12, 22, 32),
+        padding: EdgeInsets.fromLTRB(
+          22,
+          12,
+          22,
+          32 + MediaQuery.viewPaddingOf(context).bottom,
+        ),
         children: [
           Center(
             child: ConstrainedBox(
@@ -546,19 +554,15 @@ class _ReminderEditorState extends ConsumerState<ReminderEditor> {
                               }
                             },
                           ),
-                        const Divider(),
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            l.vibrate,
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                          value: _vibrate,
-                          onChanged: (value) =>
-                              setState(() => _vibrate = value),
-                        ),
                       ],
                     ),
+                  ),
+                  SoundSettings(
+                    value: _sound,
+                    onChanged: (sound) => setState(() => _sound = sound),
+                    vibrate: _vibrate,
+                    onVibrateChanged: (value) =>
+                        setState(() => _vibrate = value),
                   ),
                   if (_error != null)
                     Padding(
@@ -644,6 +648,7 @@ class _ReminderEditorState extends ConsumerState<ReminderEditor> {
       repeating: _repeating,
       reviewEnabled: _review,
       vibrate: _vibrate,
+      sound: _sound,
       days: (_days.toList()..sort()),
     );
     setState(() {

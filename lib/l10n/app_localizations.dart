@@ -809,7 +809,7 @@ abstract class AppLocalizations {
   /// No description provided for @soundHelp.
   ///
   /// In zh, this message translates to:
-  /// **'响铃使用系统闹钟音量与默认闹钟铃声。'**
+  /// **'每条提醒可单独设置声音。实际响度仍受系统闹钟音量限制。'**
   String get soundHelp;
 
   /// No description provided for @allowed.
@@ -959,7 +959,7 @@ abstract class AppLocalizations {
   /// No description provided for @eventSound.
   ///
   /// In zh, this message translates to:
-  /// **'系统铃声异常，已启用备用提示音'**
+  /// **'铃声不可用，已切换备用声音'**
   String get eventSound;
 
   /// No description provided for @timeToAct.
@@ -1304,10 +1304,118 @@ abstract class AppLocalizations {
   /// **'还有 {duration}'**
   String nextIn(String duration);
 
+  /// No description provided for @soundAndVibration.
+  ///
+  /// In zh, this message translates to:
+  /// **'声音与振动'**
+  String get soundAndVibration;
+
+  /// No description provided for @alarmSound.
+  ///
+  /// In zh, this message translates to:
+  /// **'闹钟铃声'**
+  String get alarmSound;
+
+  /// No description provided for @systemDefaultSound.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统默认闹钟铃声'**
+  String get systemDefaultSound;
+
+  /// No description provided for @selectedSound.
+  ///
+  /// In zh, this message translates to:
+  /// **'已选择系统铃声'**
+  String get selectedSound;
+
+  /// No description provided for @useDefaultSound.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复系统默认铃声'**
+  String get useDefaultSound;
+
+  /// No description provided for @reminderVolume.
+  ///
+  /// In zh, this message translates to:
+  /// **'本条提醒音量：{volume}%'**
+  String reminderVolume(int volume);
+
+  /// No description provided for @volumeLimitHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'在系统闹钟音量范围内调节本条提醒的响度，100% 为系统当前响度。'**
+  String get volumeLimitHelp;
+
+  /// No description provided for @alarmVolumeZero.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统闹钟音量为零，提醒可能无声。请先调整并试听。'**
+  String get alarmVolumeZero;
+
+  /// No description provided for @fadeIn.
+  ///
+  /// In zh, this message translates to:
+  /// **'音量渐强'**
+  String get fadeIn;
+
+  /// No description provided for @fadeOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭'**
+  String get fadeOff;
+
+  /// No description provided for @soundSeconds.
+  ///
+  /// In zh, this message translates to:
+  /// **'{seconds} 秒'**
+  String soundSeconds(int seconds);
+
+  /// No description provided for @previewSound.
+  ///
+  /// In zh, this message translates to:
+  /// **'试听铃声'**
+  String get previewSound;
+
+  /// No description provided for @stopSoundPreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'停止试听'**
+  String get stopSoundPreview;
+
+  /// No description provided for @soundPreviewHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'按当前音量与渐强设置试听，渐强结束后自动停止；离开页面或正式响铃时停止。'**
+  String get soundPreviewHelp;
+
+  /// No description provided for @soundFallbackHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'所选铃声不可用，正在使用备用声音。请重新选择铃声。'**
+  String get soundFallbackHelp;
+
+  /// No description provided for @errorSound.
+  ///
+  /// In zh, this message translates to:
+  /// **'声音设置不可用，请重新选择铃声和音量。'**
+  String get errorSound;
+
+  /// No description provided for @errorSoundPicker.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统铃声选择器暂时不可用，可继续使用默认铃声。'**
+  String get errorSoundPicker;
+
+  /// No description provided for @errorSoundDuringAlarm.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先处理正在响铃的提醒，再试听。'**
+  String get errorSoundDuringAlarm;
+
   /// No description provided for @alarmVolume.
   ///
   /// In zh, this message translates to:
-  /// **'当前闹钟音量：{volume}'**
+  /// **'系统闹钟音量档位：{volume}'**
   String alarmVolume(int volume);
 }
 

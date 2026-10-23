@@ -363,7 +363,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get soundSettings => '闹钟音量与铃声';
 
   @override
-  String get soundHelp => '响铃使用系统闹钟音量与默认闹钟铃声。';
+  String get soundHelp => '每条提醒可单独设置声音。实际响度仍受系统闹钟音量限制。';
 
   @override
   String get allowed => '已开启';
@@ -438,7 +438,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get eventSkipped => '通过密码和誓词应急关闭';
 
   @override
-  String get eventSound => '系统铃声异常，已启用备用提示音';
+  String get eventSound => '铃声不可用，已切换备用声音';
 
   @override
   String get timeToAct => '该行动了';
@@ -624,7 +624,65 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get soundAndVibration => '声音与振动';
+
+  @override
+  String get alarmSound => '闹钟铃声';
+
+  @override
+  String get systemDefaultSound => '系统默认闹钟铃声';
+
+  @override
+  String get selectedSound => '已选择系统铃声';
+
+  @override
+  String get useDefaultSound => '恢复系统默认铃声';
+
+  @override
+  String reminderVolume(int volume) {
+    return '本条提醒音量：$volume%';
+  }
+
+  @override
+  String get volumeLimitHelp => '在系统闹钟音量范围内调节本条提醒的响度，100% 为系统当前响度。';
+
+  @override
+  String get alarmVolumeZero => '系统闹钟音量为零，提醒可能无声。请先调整并试听。';
+
+  @override
+  String get fadeIn => '音量渐强';
+
+  @override
+  String get fadeOff => '关闭';
+
+  @override
+  String soundSeconds(int seconds) {
+    return '$seconds 秒';
+  }
+
+  @override
+  String get previewSound => '试听铃声';
+
+  @override
+  String get stopSoundPreview => '停止试听';
+
+  @override
+  String get soundPreviewHelp => '按当前音量与渐强设置试听，渐强结束后自动停止；离开页面或正式响铃时停止。';
+
+  @override
+  String get soundFallbackHelp => '所选铃声不可用，正在使用备用声音。请重新选择铃声。';
+
+  @override
+  String get errorSound => '声音设置不可用，请重新选择铃声和音量。';
+
+  @override
+  String get errorSoundPicker => '系统铃声选择器暂时不可用，可继续使用默认铃声。';
+
+  @override
+  String get errorSoundDuringAlarm => '请先处理正在响铃的提醒，再试听。';
+
+  @override
   String alarmVolume(int volume) {
-    return '当前闹钟音量：$volume';
+    return '系统闹钟音量档位：$volume';
   }
 }

@@ -33,6 +33,7 @@ class ReminderEngine private constructor(private val context: Context) {
     }
     fun text(zh: String, en: String) = if (english()) en else zh
     private fun changed() { mainHandler.post { onChanged?.invoke() } }
+    fun soundPreviewChanged() { changed() }
     fun exactAllowed() = Build.VERSION.SDK_INT < 31 || alarms.canScheduleExactAlarms()
     fun permissions(): JSONObject {
         val channel = notifications.getNotificationChannel(AlarmService.CHANNEL)
@@ -54,6 +55,7 @@ class ReminderEngine private constructor(private val context: Context) {
         val publicOccurrences = live.map { item -> JSONObject(item.toString()).apply { remove("answer"); remove("questionToken") } }
         return JSONObject().put("plans", JSONArray(plans)).put("occurrences", JSONArray(publicOccurrences))
             .put("history", JSONArray(store.history())).put("weeklyStats", store.weeklyStats()).put("permissions", permissions())
+            .put("soundPreviewPlaying", SoundPreview.playing).put("soundPreviewFallback", SoundPreview.fallbackLevel)
             .put("settings", JSONObject().put("language", preferences.getString("language", "system"))
                 .put("theme", preferences.getString("theme", "system"))
                 .put("defaultSnoozeMinutes", preferences.getInt("default_snooze", 10)).put("hasPassword", vault.configured()))
@@ -91,7 +93,14 @@ class ReminderEngine private constructor(private val context: Context) {
         if (input.getString("mission") == "qr" && input.optString("qrValue").isBlank()) throw RuleException("qr_required")
         ReminderPolicy.snoozeAt(0, input.getInt("snoozeMinutes"))
         ReminderPolicy.snoozeAt(0, input.getInt("reviewMinutes"))
+        val volume = input.optInt("volumePercent", 100)
+        val fade = input.optInt("fadeInSeconds", 0)
+        AlarmSoundPolicy.validate(volume, fade)
+        val soundUri = input.optString("soundUri", "")
+        require(soundUri.length <= 4096 && (soundUri.isEmpty() || Uri.parse(soundUri).scheme == "content")) { "invalid_sound" }
         val plan = JSONObject(input.toString()).put("id", id).put("title", title).put("enabled", true)
+            .put("soundUri", soundUri).put("soundName", input.optString("soundName", "").take(200))
+            .put("volumePercent", volume).put("fadeInSeconds", fade)
         plan.remove("nextAt"); plan.remove("occurrenceStatus")
         val time = testAt ?: nextAt(plan, System.currentTimeMillis())
         if (time <= System.currentTimeMillis()) throw RuleException("past_time")
@@ -221,6 +230,7 @@ class ReminderEngine private constructor(private val context: Context) {
         // Stale PendingIntents must never resurrect an already snoozed occurrence.
         if (expectedAt > System.currentTimeMillis() + 1500) return false
         val alreadyRinging = item.getString("status") == "ringing"
+        if (!alreadyRinging) item.put("ringStartedAt", System.currentTimeMillis())
         item.put("status", "ringing")
         store.transaction { store.putOccurrence(item); if (!alreadyRinging) store.event("ringing", item) }
         changed(); return true
@@ -263,13 +273,15 @@ class ReminderEngine private constructor(private val context: Context) {
     private fun cancel(id: String) { alarms.cancel(pending(id)); pending(id).cancel() }
     private fun refreshService() { AlarmService.refresh(context) }
     @Synchronized fun recordSoundFailure(item: JSONObject) { store.event("soundFallback", item); changed() }
-    @Synchronized fun createTest(): String {
+    @Synchronized fun createTest(sound: JSONObject = JSONObject()): String {
         val now = java.time.ZonedDateTime.now()
         return savePlan(JSONObject().put("title", text("测试提醒", "Test reminder")).put("note", "")
             .put("category", "other").put("mission", "math").put("difficulty", "easy").put("mathCount", 1)
             .put("date", now.toLocalDate().toString()).put("hour", now.hour).put("minute", now.minute)
             .put("days", JSONArray()).put("repeating", false).put("snoozeMinutes", preferences.getInt("default_snooze", 10))
-            .put("reviewEnabled", false).put("reviewMinutes", 10).put("vibrate", true).put("qrValue", "").put("qrLabel", ""), System.currentTimeMillis() + 30_000)
+            .put("reviewEnabled", false).put("reviewMinutes", 10).put("vibrate", true).put("qrValue", "").put("qrLabel", "")
+            .put("soundUri", sound.optString("soundUri", "")).put("soundName", sound.optString("soundName", ""))
+            .put("volumePercent", sound.optInt("volumePercent", 100)).put("fadeInSeconds", sound.optInt("fadeInSeconds", 0)), System.currentTimeMillis() + 30_000)
     }
     companion object {
         // get() always replaces any supplied Activity/Service with applicationContext.

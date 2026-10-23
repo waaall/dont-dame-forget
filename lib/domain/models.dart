@@ -5,6 +5,40 @@ Map<String, dynamic> jsonMap(dynamic value) =>
 int integer(dynamic value, [int fallback = 0]) =>
     (value as num?)?.toInt() ?? fallback;
 
+class ReminderSound {
+  final String uri, name;
+  final int volumePercent, fadeInSeconds;
+  const ReminderSound({
+    this.uri = '',
+    this.name = '',
+    this.volumePercent = 100,
+    this.fadeInSeconds = 0,
+  });
+  factory ReminderSound.fromJson(Map<String, dynamic> data) => ReminderSound(
+    uri: data['soundUri'] as String? ?? '',
+    name: data['soundName'] as String? ?? '',
+    volumePercent: integer(data['volumePercent'], 100),
+    fadeInSeconds: integer(data['fadeInSeconds']),
+  );
+  ReminderSound copyWith({
+    String? uri,
+    String? name,
+    int? volumePercent,
+    int? fadeInSeconds,
+  }) => ReminderSound(
+    uri: uri ?? this.uri,
+    name: name ?? this.name,
+    volumePercent: volumePercent ?? this.volumePercent,
+    fadeInSeconds: fadeInSeconds ?? this.fadeInSeconds,
+  );
+  Map<String, dynamic> toJson() => {
+    'soundUri': uri,
+    'soundName': name,
+    'volumePercent': volumePercent,
+    'fadeInSeconds': fadeInSeconds,
+  };
+}
+
 class Reminder {
   final String id,
       title,
@@ -20,6 +54,7 @@ class Reminder {
   final List<int> days;
   final DateTime? nextAt;
   final String? occurrenceStatus;
+  final ReminderSound sound;
   const Reminder({
     required this.id,
     required this.title,
@@ -42,6 +77,7 @@ class Reminder {
     required this.days,
     this.nextAt,
     this.occurrenceStatus,
+    this.sound = const ReminderSound(),
   });
   factory Reminder.fromJson(Map<String, dynamic> data) => Reminder(
     id: data['id'] as String,
@@ -67,6 +103,7 @@ class Reminder {
         ? null
         : DateTime.fromMillisecondsSinceEpoch(integer(data['nextAt'])),
     occurrenceStatus: data['occurrenceStatus'] as String?,
+    sound: ReminderSound.fromJson(data),
   );
   bool get protected =>
       const ['ringing', 'snoozed', 'reviewPending'].contains(occurrenceStatus);
@@ -90,6 +127,7 @@ class Reminder {
     'repeating': repeating,
     'reviewEnabled': reviewEnabled,
     'vibrate': vibrate,
+    ...sound.toJson(),
     'days': days,
   };
 }
@@ -193,6 +231,8 @@ class ReminderPermissions {
 }
 
 class AppSnapshot {
+  final bool soundPreviewPlaying;
+  final int soundPreviewFallback;
   final List<Reminder> plans;
   final List<Occurrence> occurrences;
   final List<ActivityEvent> history;
@@ -206,8 +246,12 @@ class AppSnapshot {
     required this.settings,
     required this.permissions,
     this.weeklyStats = const {},
+    this.soundPreviewPlaying = false,
+    this.soundPreviewFallback = 0,
   });
   factory AppSnapshot.fromJson(Map<String, dynamic> data) => AppSnapshot(
+    soundPreviewPlaying: data['soundPreviewPlaying'] == true,
+    soundPreviewFallback: integer(data['soundPreviewFallback']),
     plans: (data['plans'] as List)
         .map((item) => Reminder.fromJson(jsonMap(item)))
         .toList(),

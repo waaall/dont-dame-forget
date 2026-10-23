@@ -91,6 +91,17 @@ class FakeEngine extends ReminderEngine {
     if (method == 'snapshot') return data;
     calls.add((method, {...arguments}));
     switch (method) {
+      case 'pickSound':
+        return {
+          'soundUri': 'content://media/internal/audio/media/42',
+          'soundName': 'Morning bell',
+        };
+      case 'previewSound':
+        data['soundPreviewPlaying'] = true;
+        return null;
+      case 'stopSoundPreview':
+        data['soundPreviewPlaying'] = false;
+        return null;
       case 'saveSettings':
         for (final entry in arguments.entries) {
           (data['settings'] as Map)[entry.key] = entry.value;

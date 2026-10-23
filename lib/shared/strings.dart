@@ -70,6 +70,10 @@ extension AppStrings on BuildContext {
       'password_required' => l10n.passwordSetupBody,
       'stale_question' => l10n.errorStale,
       'storage_error' => l10n.errorStorage,
+      'invalid_sound' => l10n.errorSound,
+      'sound_picker_unavailable' ||
+      'sound_picker_busy' => l10n.errorSoundPicker,
+      'alarm_ringing' => l10n.errorSoundDuringAlarm,
       _ => l10n.errorGeneric,
     };
   }

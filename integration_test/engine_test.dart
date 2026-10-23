@@ -18,6 +18,17 @@ void main() {
 
   Future<Map<String, dynamic>> snapshot() async =>
       jsonMap(await engine.invoke('snapshot'));
+  Future<Map<String, dynamic>> audio(String kind) async =>
+      jsonMap(jsonMap(await engine.invoke('soundStatus'))[kind]);
+  Future<Map<String, dynamic>> waitForAudio(String kind) async {
+    for (var i = 0; i < 40; i++) {
+      final status = await audio(kind);
+      if (status['ready'] == true) return status;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    fail('$kind audio did not become ready');
+  }
+
   Future<Map<String, dynamic>> occurrence(String planId) async =>
       ((await snapshot())['occurrences'] as List)
           .map(jsonMap)
@@ -93,6 +104,7 @@ void main() {
   });
 
   tearDownAll(() async {
+    await engine.invoke('stopSoundPreview');
     for (final id in created) {
       final live = ((await snapshot())['occurrences'] as List)
           .map(jsonMap)
@@ -131,6 +143,10 @@ void main() {
       DateTime.now().add(const Duration(days: 1)),
     );
     final id = await save(data);
+    final storedPlan = jsonMap((await occurrence(id))['plan']);
+    expect(storedPlan['volumePercent'], 100);
+    expect(storedPlan['fadeInSeconds'], 0);
+    expect(storedPlan['soundUri'], '');
     expect((await occurrence(id))['status'], 'scheduled');
     await engine.invoke('setEnabled', {'id': id, 'enabled': false});
     expect(
@@ -145,15 +161,74 @@ void main() {
   });
 
   testWidgets(
-    'real 30 second alarm, protected state, snooze and early completion',
+    'native sound preview, gradual gain, fallback and automatic stop',
     (tester) async {
-      final id = await engine.invoke('testReminder') as String;
+      await engine.invoke('previewSound', {
+        'volumePercent': 60,
+        'fadeInSeconds': 15,
+      });
+      final first = await waitForAudio('preview');
+      expect(first['volumePercent'], 60);
+      expect(first['fadeInSeconds'], 15);
+      final gain = (first['gain'] as num).toDouble();
+      await Future<void>.delayed(const Duration(seconds: 2));
+      expect((await audio('preview'))['gain'] as num, greaterThan(gain));
+      await engine.invoke('stopSoundPreview');
+      expect((await audio('preview'))['playing'], isFalse);
+      await engine.invoke('previewSound', {
+        'volumePercent': 100,
+        'fadeInSeconds': 0,
+        'soundUri': 'content://invalid.dontforget.test/missing',
+      });
+      final fallback = await waitForAudio('preview');
+      expect(fallback['fallbackLevel'], greaterThan(0));
+      expect(fallback['gain'], 1.0);
+      expect(
+        fallback['uri'],
+        isNot('content://invalid.dontforget.test/missing'),
+      );
+      await Future<void>.delayed(const Duration(seconds: 11));
+      expect((await audio('preview'))['playing'], isFalse);
+      expect((await snapshot())['soundPreviewPlaying'], isFalse);
+      await expectLater(
+        engine.invoke('previewSound', {'volumePercent': 0}),
+        throwsA(rule('invalid_sound')),
+      );
+    },
+  );
+
+  testWidgets(
+    'real 30 second alarm, preview preemption, protected state and snooze fade restart',
+    (tester) async {
+      final id =
+          await engine.invoke('testReminder', {
+                'volumePercent': 60,
+                'fadeInSeconds': 15,
+              })
+              as String;
       created.add(id);
       debugPrint('DEVICE_TEST_WAITING_FOR_30_SECOND_ALARM');
+      await Future<void>.delayed(const Duration(seconds: 23));
+      await engine.invoke('previewSound', {
+        'volumePercent': 40,
+        'fadeInSeconds': 120,
+      });
+      expect((await audio('preview'))['playing'], isTrue);
       await waitForRinging(id);
       debugPrint('DEVICE_TEST_RINGING_SERVICE_WINDOW');
-      await Future<void>.delayed(const Duration(seconds: 10));
+      final ringingSound = await waitForAudio('alarm');
+      expect(ringingSound['volumePercent'], 60);
+      expect(ringingSound['fadeInSeconds'], 15);
+      expect((await audio('preview'))['playing'], isFalse);
+      await expectLater(
+        engine.invoke('previewSound', {'volumePercent': 100}),
+        throwsA(rule('alarm_ringing')),
+      );
+      final initialGain = ringingSound['gain'] as num;
+      await Future<void>.delayed(const Duration(seconds: 3));
+      expect((await audio('alarm'))['gain'] as num, greaterThan(initialGain));
       final item = await occurrence(id);
+      final firstRingStartedAt = item['ringStartedAt'];
       final occurrenceId = item['id'] as String;
       for (final method in ['deleteReminder', 'setEnabled']) {
         await expectLater(
@@ -193,6 +268,15 @@ void main() {
         }),
         throwsA(rule('stale_question')),
       );
+      debugPrint('DEVICE_TEST_WAITING_FOR_SOUND_SNOOZE');
+      await waitForRinging(id);
+      final snoozedSound = await waitForAudio('alarm');
+      expect(snoozedSound['volumePercent'], 60);
+      expect(snoozedSound['gain'] as num, lessThan(0.06));
+      expect(
+        (await occurrence(id))['ringStartedAt'] as num,
+        greaterThan(firstRingStartedAt as num),
+      );
       expect((await solve(occurrenceId))['completed'], isTrue);
       expect(
         ((await snapshot())['occurrences'] as List).where(
@@ -215,7 +299,10 @@ void main() {
         now.minute + 1,
       );
       final reviewId = await save(
-        plan('Device review', nextMinute)..['reviewEnabled'] = true,
+        plan('Device review', nextMinute)
+          ..['reviewEnabled'] = true
+          ..['volumePercent'] = 70
+          ..['fadeInSeconds'] = 15,
       );
       final qrId = await save(
         plan('Device QR', nextMinute)
@@ -235,6 +322,8 @@ void main() {
         engine.invoke('scanCode', {'id': qrOccurrence, 'value': 'wrong'}),
         throwsA(rule('wrong_qr')),
       );
+      await engine.invoke('snooze', {'id': qrOccurrence, 'minutes': 1});
+      expect((await occurrence(qrId))['status'], 'snoozed');
       await engine.invoke('scanCode', {
         'id': qrOccurrence,
         'value': 'device-test-qr',
@@ -278,6 +367,9 @@ void main() {
       debugPrint('DEVICE_TEST_WAITING_FOR_ONE_MINUTE_REVIEW');
       await waitForRinging(reviewId);
       expect((await occurrence(reviewId))['isReview'], isTrue);
+      final reviewSound = await waitForAudio('alarm');
+      expect(reviewSound['volumePercent'], 70);
+      expect(reviewSound['fadeInSeconds'], 15);
       expect((await solve(reviewOccurrence))['completed'], isFalse);
       expect((await solve(reviewOccurrence))['completed'], isTrue);
       final state = await snapshot();

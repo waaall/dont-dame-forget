@@ -378,7 +378,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get soundHelp =>
-      'Reminders use your system alarm volume and default alarm sound.';
+      'Set sound for each reminder. The system alarm volume still limits loudness.';
 
   @override
   String get allowed => 'Allowed';
@@ -456,8 +456,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get eventSkipped => 'Dismissed with password and pledge';
 
   @override
-  String get eventSound =>
-      'System alarm sound unavailable; fallback tone started';
+  String get eventSound => 'Ringtone unavailable; switched to a fallback sound';
 
   @override
   String get timeToAct => 'TIME TO ACT';
@@ -654,7 +653,72 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get soundAndVibration => 'Sound and vibration';
+
+  @override
+  String get alarmSound => 'Alarm sound';
+
+  @override
+  String get systemDefaultSound => 'System default alarm sound';
+
+  @override
+  String get selectedSound => 'Selected system ringtone';
+
+  @override
+  String get useDefaultSound => 'Use system default sound';
+
+  @override
+  String reminderVolume(int volume) {
+    return 'Reminder volume: $volume%';
+  }
+
+  @override
+  String get volumeLimitHelp =>
+      'Adjust loudness within the system alarm volume. 100% uses the current system level.';
+
+  @override
+  String get alarmVolumeZero =>
+      'System alarm volume is zero. Raise it and preview to make sure you can hear the alarm.';
+
+  @override
+  String get fadeIn => 'Gradually increase volume';
+
+  @override
+  String get fadeOff => 'Off';
+
+  @override
+  String soundSeconds(int seconds) {
+    return '$seconds sec';
+  }
+
+  @override
+  String get previewSound => 'Preview sound';
+
+  @override
+  String get stopSoundPreview => 'Stop preview';
+
+  @override
+  String get soundPreviewHelp =>
+      'Uses these volume and fade settings, then stops automatically. Leaving this page or a real alarm stops the preview.';
+
+  @override
+  String get soundFallbackHelp =>
+      'The selected ringtone is unavailable. A fallback sound is playing. Choose another ringtone.';
+
+  @override
+  String get errorSound =>
+      'Sound settings are unavailable. Choose the ringtone and volume again.';
+
+  @override
+  String get errorSoundPicker =>
+      'The system ringtone picker is unavailable. You can use the default sound.';
+
+  @override
+  String get errorSoundDuringAlarm =>
+      'Resolve the ringing reminder before previewing a sound.';
+
+  @override
   String alarmVolume(int volume) {
-    return 'Current alarm volume: $volume';
+    return 'System alarm volume step: $volume';
   }
 }

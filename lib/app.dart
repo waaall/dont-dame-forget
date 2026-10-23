@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/reminder_engine.dart';
+import 'core/route_observer.dart';
 import 'domain/models.dart';
 import 'features/home/home_page.dart';
 import 'features/history/history_page.dart';
@@ -21,6 +22,7 @@ class DontForgetApp extends ConsumerWidget {
         ref.watch(appControllerProvider).snapshot?.settings ??
         const UserSettings();
     return MaterialApp(
+      navigatorObservers: [appRouteObserver],
       debugShowCheckedModeBanner: false,
       onGenerateTitle: (context) => context.l10n.appName,
       locale: settings.locale,

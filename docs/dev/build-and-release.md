@@ -36,7 +36,7 @@ adb install -r build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
 
 ## Android 引擎集成测试
 
-`integration_test/engine_test.dart` 使用真实 MethodChannel、SQLite 与 AlarmManager，覆盖计划增删改、密码校验、30 秒触发、活动任务保护、推迟后提前完成、二维码值校验、应急关闭、重复调度和仅一次复查。测试包含真实计时，通常需要约 3 分钟。
+`integration_test/engine_test.dart` 使用真实 MethodChannel、SQLite 与 AlarmManager，覆盖计划增删改、密码校验、30 秒触发、活动任务保护、推迟后提前完成、二维码值校验、应急关闭、重复调度和仅一次复查。声音测试还覆盖真实播放器增益、试听自动停止与正式闹钟抢占、无效音源回退、推迟与复查的声音配置。测试包含真实计时，通常需要约 3–5 分钟。声音设置的具体部署验收见 [2026-10-23 测试记录](qa-2026-10-23-sound.md)。
 
 仅在专用 Android 35 模拟器上执行：测试会设置应急密码 `test-only-4729`、修改语言和主题并创建真实闹钟；结束时清理本次创建的计划。不要在保存个人提醒的手机上直接运行。
 
