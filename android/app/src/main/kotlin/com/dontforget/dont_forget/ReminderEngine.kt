@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
+import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalDate
@@ -72,8 +73,11 @@ class ReminderEngine private constructor(private val context: Context) {
     @Synchronized fun setPassword(current: String, password: String) { vault.set(current, password); changed() }
     private fun ensureReady() {
         if (!vault.configured()) throw RuleException("password_required")
-        if (!exactAllowed()) throw RuleException("exact_required")
+        ensureExactAccess()
         if (!permissions().getBoolean("notifications")) throw RuleException("notifications_required")
+    }
+    private fun ensureExactAccess() {
+        if (!exactAllowed()) throw RuleException("exact_required")
     }
     private fun nextAt(plan: JSONObject, now: Long): Long = ReminderPolicy.nextAt(
         plan.getString("date"), plan.getInt("hour"), plan.getInt("minute"), plan.getBoolean("repeating"),
@@ -152,14 +156,20 @@ class ReminderEngine private constructor(private val context: Context) {
         return item
     }
     @Synchronized fun snooze(id: String, minutes: Int) {
-        ensureReady()
+        // Existing missions must remain usable when notification settings change.
+        // Exact access is still needed before stopping the current alarm.
+        ensureExactAccess()
         val item = openOccurrence(id)
         val time = ReminderPolicy.snoozeAt(System.currentTimeMillis(), minutes)
         item.put("status", "snoozed").put("nextAt", time).put("mathDone", 0)
             .put("snoozeCount", item.optInt("snoozeCount") + 1)
         item.remove("question"); item.remove("answer"); item.remove("questionToken")
-        store.transaction { store.putOccurrence(item); store.event("snoozed", item, minutes) }
-        schedule(item); refreshService(); changed()
+        store.transaction {
+            store.putOccurrence(item); store.event("snoozed", item, minutes)
+            // A rejected system schedule must leave the current mission/progress intact.
+            schedule(item)
+        }
+        refreshService(); changed()
     }
     @Synchronized fun challenge(id: String): JSONObject {
         val item = openOccurrence(id)
@@ -202,14 +212,14 @@ class ReminderEngine private constructor(private val context: Context) {
     }
     private fun finish(item: JSONObject, skipped: Boolean) {
         val planSnapshot = item.getJSONObject("plan")
+        var next: JSONObject? = null
         if (ReminderPolicy.completion(planSnapshot.getBoolean("reviewEnabled"), item.getBoolean("isReview"), skipped) == ReminderPolicy.Completion.REVIEW) {
             item.put("status", "reviewPending").put("isReview", true).put("mathDone", 0)
                 .put("nextAt", ReminderPolicy.snoozeAt(System.currentTimeMillis(), planSnapshot.getInt("reviewMinutes")))
             item.remove("question"); item.remove("answer"); item.remove("questionToken")
             store.transaction { store.putOccurrence(item); store.event("reviewScheduled", item, planSnapshot.getInt("reviewMinutes")) }
-            schedule(item)
+            next = item
         } else {
-            var next: JSONObject? = null
             store.transaction {
                 item.put("status", if (skipped) "skipped" else "completed")
                 store.putOccurrence(item); store.event(if (skipped) "skipped" else "completed", item)
@@ -219,9 +229,19 @@ class ReminderEngine private constructor(private val context: Context) {
                     store.putOccurrence(next!!)
                 } else store.putPlan(plan.put("enabled", false))
             }
-            cancel(item.getString("id")); next?.let { schedule(it) }
+            // A stale broadcast is rejected by fire() even if cancellation fails.
+            try { cancel(item.getString("id")) }
+            catch (error: Exception) { Log.e("DontForget", "Unable to cancel completed alarm", error) }
         }
-        refreshService(); changed()
+        try {
+            next?.let { schedule(it) }
+        } catch (error: Exception) {
+            // Completion is already committed. Keep the live next occurrence for
+            // foreground/permission/boot recovery, without trapping the old mission.
+            Log.e("DontForget", "Next alarm remains pending recovery", error)
+        } finally {
+            refreshService(); changed()
+        }
     }
 
     @Synchronized fun fire(id: String, expectedAt: Long): Boolean {
@@ -238,9 +258,12 @@ class ReminderEngine private constructor(private val context: Context) {
     @Synchronized fun ringing(): List<JSONObject> = store.live().filter { it.getString("status") == "ringing" }
     @Synchronized fun reconcile(clockChanged: Boolean = false) {
         val live = store.live()
+        val now = System.currentTimeMillis()
         live.forEach { item ->
-            if (clockChanged && item.getString("status") == "scheduled") {
-                val next = nextAt(item.getJSONObject("plan"), System.currentTimeMillis())
+            // Advancing the clock can make an undelivered alarm overdue. Preserve
+            // that occurrence so recovery fires it, rather than skipping to next week/day.
+            if (clockChanged && item.getString("status") == "scheduled" && item.getLong("nextAt") > now) {
+                val next = nextAt(item.getJSONObject("plan"), now)
                 item.put("nextAt", next).put("originalAt", next); store.putOccurrence(item)
             }
             // After a reboot, also restart a previously ringing item via a real exact alarm.

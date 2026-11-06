@@ -46,4 +46,6 @@ flutter {
 
 dependencies {
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.mockito:mockito-core:5.23.0")
+    testImplementation("org.json:json:20240303")
 }
