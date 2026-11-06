@@ -159,15 +159,29 @@ class ReminderEngine private constructor(private val context: Context) {
         // Existing missions must remain usable when notification settings change.
         // Exact access is still needed before stopping the current alarm.
         ensureExactAccess()
-        val item = openOccurrence(id)
+        val previous = openOccurrence(id)
+        val item = JSONObject(previous.toString())
         val time = ReminderPolicy.snoozeAt(System.currentTimeMillis(), minutes)
         item.put("status", "snoozed").put("nextAt", time).put("mathDone", 0)
             .put("snoozeCount", item.optInt("snoozeCount") + 1)
         item.remove("question"); item.remove("answer"); item.remove("questionToken")
-        store.transaction {
-            store.putOccurrence(item); store.event("snoozed", item, minutes)
-            // A rejected system schedule must leave the current mission/progress intact.
-            schedule(item)
+        var schedulingStarted = false
+        try {
+            store.transaction {
+                store.putOccurrence(item); store.event("snoozed", item, minutes)
+                schedulingStarted = true
+                schedule(item)
+            }
+        } catch (error: Exception) {
+            // Rollback cannot undo an accepted alarm or FLAG_UPDATE_CURRENT extras.
+            if (schedulingStarted) {
+                try { schedule(previous) }
+                catch (restoreError: Exception) {
+                    if (restoreError !== error) error.addSuppressed(restoreError)
+                    Log.e("DontForget", "Previous alarm remains pending recovery after failed snooze", restoreError)
+                }
+            }
+            throw error
         }
         refreshService(); changed()
     }

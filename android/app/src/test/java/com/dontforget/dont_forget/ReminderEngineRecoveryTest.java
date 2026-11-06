@@ -41,7 +41,11 @@ public class ReminderEngineRecoveryTest {
     private AlarmManager alarms;
     private NotificationManager notifications;
     private ReminderEngine engine;
+    private ReminderStore store;
     private MockedConstruction<Handler> handlers;
+    private RuntimeException commitFailure;
+    private long scheduledAt;
+    private long pendingAt;
 
     private <T extends AutoCloseable> T track(T mock) { mocks.add(mock); return mock; }
     private static JSONObject copy(JSONObject value) {
@@ -74,12 +78,22 @@ public class ReminderEngineRecoveryTest {
         handlers = track(mockConstruction(Handler.class));
         track(mockStatic(Looper.class));
         track(mockStatic(Log.class));
-        track(mockConstruction(AlarmManager.AlarmClockInfo.class));
+        track(mockConstruction(AlarmManager.AlarmClockInfo.class, (info, construction) ->
+            when(info.getTriggerTime()).thenReturn((Long) construction.arguments().get(0))));
+        doAnswer(call -> {
+            scheduledAt = ((AlarmManager.AlarmClockInfo) call.getArgument(0)).getTriggerTime();
+            return null;
+        }).when(alarms).setAlarmClock(any(), any());
         track(mockConstruction(Intent.class, (intent, construction) -> {
             when(intent.setAction(anyString())).thenReturn(intent);
             when(intent.setData(any())).thenReturn(intent);
             when(intent.putExtra(anyString(), anyString())).thenReturn(intent);
-            when(intent.putExtra(anyString(), anyLong())).thenReturn(intent);
+            when(intent.putExtra(anyString(), anyLong())).thenAnswer(call -> {
+                String key = call.getArgument(0);
+                long value = call.getArgument(1);
+                when(intent.getLongExtra(eq(key), anyLong())).thenReturn(value);
+                return intent;
+            });
         }));
         MockedStatic<Uri> uris = track(mockStatic(Uri.class));
         Uri uri = mock(Uri.class);
@@ -87,12 +101,16 @@ public class ReminderEngineRecoveryTest {
         MockedStatic<PendingIntent> pending = track(mockStatic(PendingIntent.class));
         PendingIntent operation = mock(PendingIntent.class);
         pending.when(() -> PendingIntent.getActivity(any(), anyInt(), any(), anyInt())).thenReturn(operation);
-        pending.when(() -> PendingIntent.getBroadcast(any(), anyInt(), any(), anyInt())).thenReturn(operation);
+        pending.when(() -> PendingIntent.getBroadcast(any(), anyInt(), any(), anyInt())).thenAnswer(call -> {
+            pendingAt = ((Intent) call.getArgument(2)).getLongExtra("at", 0);
+            return operation;
+        });
         track(mockConstruction(PasswordVault.class, (vault, construction) -> {
             when(vault.configured()).thenReturn(true);
             when(vault.matches(anyString())).thenReturn(true);
         }));
         track(mockConstruction(ReminderStore.class, (store, construction) -> {
+            this.store = store;
             when(store.plan(anyString())).thenAnswer(call -> copy(plans.get(call.getArgument(0))));
             when(store.occurrence(anyString())).thenAnswer(call -> copy(occurrences.get(call.getArgument(0))));
             when(store.live()).thenAnswer(call -> {
@@ -114,7 +132,11 @@ public class ReminderEngineRecoveryTest {
             }).when(store).putOccurrence(any());
             when(store.transaction(any())).thenAnswer(call -> {
                 Map<String, JSONObject> savedPlans = copies(plans), savedOccurrences = copies(occurrences);
-                try { return ((Function0<?>) call.getArgument(0)).invoke(); }
+                try {
+                    Object result = ((Function0<?>) call.getArgument(0)).invoke();
+                    if (commitFailure != null) throw commitFailure;
+                    return result;
+                }
                 catch (Throwable failure) {
                     plans.clear(); plans.putAll(savedPlans);
                     occurrences.clear(); occurrences.putAll(savedOccurrences);
@@ -165,6 +187,84 @@ public class ReminderEngineRecoveryTest {
         assertEquals("token", current.getString("questionToken"));
         assertEquals(0, current.getInt("snoozeCount"));
         verify(context, never()).startService(any());
+    }
+
+    @Test public void failedSnoozeCommitRestoresThePreviousSystemAlarmAndMission() throws Exception {
+        long previousAt = System.currentTimeMillis() + 60_000;
+        seed(false, false, "snoozed", previousAt);
+        occurrences.get("occurrence").getJSONObject("plan").put("mathCount", 3);
+        occurrences.get("occurrence").put("mathDone", 1).put("snoozeCount", 2);
+        String previous = occurrences.get("occurrence").toString();
+        engine.repairScheduled();
+        clearInvocations(alarms);
+        commitFailure = new IllegalStateException("SQLite commit failed");
+
+        assertSame(commitFailure, assertThrows(IllegalStateException.class, () -> engine.snooze("occurrence", 10)));
+
+        assertEquals(previous, occurrences.get("occurrence").toString());
+        assertEquals(previousAt, scheduledAt);
+        assertEquals(previousAt, pendingAt);
+        verify(alarms, times(2)).setAlarmClock(any(), any());
+        verify(context, never()).startService(any());
+        verify(handlers.constructed().get(0), never()).post(any());
+    }
+
+    @Test public void rejectedSnoozeRestoresThePendingIntentOfAnExistingAlarm() throws Exception {
+        long previousAt = System.currentTimeMillis() + 60_000;
+        seed(false, false, "snoozed", previousAt);
+        engine.repairScheduled();
+        SecurityException failure = new SecurityException("Scheduling rejected");
+        doThrow(failure).doAnswer(call -> {
+            scheduledAt = ((AlarmManager.AlarmClockInfo) call.getArgument(0)).getTriggerTime();
+            return null;
+        }).when(alarms).setAlarmClock(any(), any());
+
+        assertSame(failure, assertThrows(SecurityException.class, () -> engine.snooze("occurrence", 10)));
+
+        assertEquals(previousAt, occurrences.get("occurrence").getLong("nextAt"));
+        assertEquals(previousAt, scheduledAt);
+        assertEquals(previousAt, pendingAt);
+    }
+
+    @Test public void failedAlarmRestorationKeepsTheCommitErrorAndAllowsForegroundRecovery() throws Exception {
+        long previousAt = System.currentTimeMillis() + 60_000;
+        seed(false, false, "snoozed", previousAt);
+        commitFailure = new IllegalStateException("SQLite commit failed");
+        SecurityException restoreFailure = new SecurityException("Restoring rejected");
+        doAnswer(call -> {
+            scheduledAt = ((AlarmManager.AlarmClockInfo) call.getArgument(0)).getTriggerTime();
+            return null;
+        }).doThrow(restoreFailure).when(alarms).setAlarmClock(any(), any());
+
+        assertSame(commitFailure, assertThrows(IllegalStateException.class, () -> engine.snooze("occurrence", 10)));
+        assertArrayEquals(new Throwable[]{restoreFailure}, commitFailure.getSuppressed());
+        assertEquals(previousAt, occurrences.get("occurrence").getLong("nextAt"));
+        assertEquals("token", occurrences.get("occurrence").getString("questionToken"));
+        verify(context, never()).startService(any());
+
+        doAnswer(call -> {
+            scheduledAt = ((AlarmManager.AlarmClockInfo) call.getArgument(0)).getTriggerTime();
+            return null;
+        }).when(alarms).setAlarmClock(any(), any());
+        engine.repairScheduled();
+        assertEquals(previousAt, scheduledAt);
+        assertEquals(previousAt, pendingAt);
+    }
+
+    @Test public void failedWriteBeforeSchedulingLeavesThePreviousSystemAlarmUntouched() throws Exception {
+        long previousAt = System.currentTimeMillis() + 60_000;
+        seed(false, false, "snoozed", previousAt);
+        engine.repairScheduled();
+        clearInvocations(alarms);
+        IllegalStateException failure = new IllegalStateException("SQLite write failed");
+        doThrow(failure).when(store).putOccurrence(any());
+
+        assertSame(failure, assertThrows(IllegalStateException.class, () -> engine.snooze("occurrence", 10)));
+
+        verify(alarms, never()).setAlarmClock(any(), any());
+        assertEquals(previousAt, scheduledAt);
+        assertEquals(previousAt, pendingAt);
+        assertEquals("snoozed", occurrences.get("occurrence").getString("status"));
     }
 
     @Test public void reviewSchedulingFailureStillCompletesTheCurrentMissionAndRefreshesAudio() throws Exception {
